@@ -5,119 +5,157 @@
   <title>Twitch Chat Overlay</title>
   <script src="https://cdn.jsdelivr.net/npm/comfy.js@latest/dist/comfy.min.js"></script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Syne:wght@400;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Patrick+Hand&display=swap');
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
       background: transparent;
-      font-family: 'Syne', sans-serif;
-      width: 400px;
+      width: 460px;
       height: 100vh;
       overflow: hidden;
       display: flex;
       flex-direction: column;
       justify-content: flex-end;
-      padding: 16px;
+      padding: 16px 20px;
     }
 
     #chat-container {
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 2px;
       max-height: 90vh;
       overflow: hidden;
     }
 
-    .msg {
+    /* Wrapper de cada mensaje: username flotando arriba + globo abajo */
+    .msg-wrapper {
       display: flex;
+      flex-direction: column;
       align-items: flex-start;
-      gap: 8px;
-      background: rgba(10, 10, 15, 0.82);
-      border-left: 3px solid var(--user-color, #9146ff);
-      border-radius: 0 8px 8px 0;
-      padding: 8px 12px;
-      backdrop-filter: blur(6px);
-      animation: slideIn 0.25s ease-out forwards;
+      animation: popIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+      margin-bottom: 4px;
     }
 
-    .msg.fade-out {
-      animation: fadeOut 0.4s ease-in forwards;
+    .msg-wrapper.fade-out {
+      animation: fadeOut 0.35s ease-in forwards;
     }
 
-    @keyframes slideIn {
-      from { opacity: 0; transform: translateX(-18px); }
-      to   { opacity: 1; transform: translateX(0); }
+    @keyframes popIn {
+      from { opacity: 0; transform: scale(0.88) translateY(10px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
     }
 
     @keyframes fadeOut {
-      from { opacity: 1; }
-      to   { opacity: 0; transform: translateX(-10px); }
+      from { opacity: 1; transform: translateY(0); }
+      to   { opacity: 0; transform: translateY(-6px); }
     }
 
-    .avatar {
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 11px;
-      font-weight: 600;
-      color: #fff;
-      background: var(--user-color, #9146ff);
-      margin-top: 1px;
-    }
-
-    .msg-body { flex: 1; min-width: 0; }
-
-    .username {
-      font-size: 12px;
+    /* Nombre de usuario encima del globo, estilo handwritten */
+    .username-label {
+      font-family: 'Caveat', cursive;
+      font-size: 17px;
       font-weight: 700;
-      color: var(--user-color, #9146ff);
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      margin-bottom: 2px;
+      color: var(--user-color, #ebc188);
+      margin-left: 22px;
+      margin-bottom: -6px;
+      position: relative;
+      z-index: 2;
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: 5px;
+      text-shadow: 1px 1px 0 #161315, -1px -1px 0 #161315,
+                   1px -1px 0 #161315, -1px 1px 0 #161315;
+      letter-spacing: 0.02em;
     }
 
     .badges img {
-      width: 14px;
-      height: 14px;
+      width: 15px;
+      height: 15px;
       vertical-align: middle;
     }
 
-    .text {
-      font-size: 14px;
-      color: rgba(255, 255, 255, 0.92);
-      line-height: 1.45;
+    /* Globo de chat */
+    .bubble {
+      position: relative;
+      background: transparent;
+      border: 3px solid #584b8b;
+      border-radius: 18px 18px 18px 4px;
+      padding: 10px 16px 10px 14px;
+      max-width: 420px;
+      /* ligera sombra para dar profundidad como en el dibujo */
+      box-shadow: 3px 3px 0px rgba(88, 75, 139, 0.45);
+    }
+
+    /* Rabito del globo, esquina inferior izquierda */
+    .bubble::before {
+      content: '';
+      position: absolute;
+      bottom: -14px;
+      left: 14px;
+      width: 0;
+      height: 0;
+      border-left: 8px solid transparent;
+      border-right: 4px solid transparent;
+      border-top: 14px solid #584b8b;
+    }
+    /* Capa interior del rabito para mantener transparencia */
+    .bubble::after {
+      content: '';
+      position: absolute;
+      bottom: -9px;
+      left: 16px;
+      width: 0;
+      height: 0;
+      border-left: 6px solid transparent;
+      border-right: 3px solid transparent;
+      border-top: 10px solid transparent;
+    }
+
+    /* Texto del mensaje */
+    .msg-text {
+      font-family: 'Patrick Hand', cursive;
+      font-size: 15px;
+      color: #f0ecff;
+      line-height: 1.5;
       word-break: break-word;
     }
 
-    .text img.emote {
+    .msg-text img.emote {
       width: 22px;
       height: 22px;
       vertical-align: middle;
+      margin: 0 1px;
+    }
+
+    /* Estrellita dorada decorativa (como en el dibujo) */
+    .star {
+      display: inline-block;
+      color: #ebc188;
+      font-size: 14px;
+      animation: twinkle 2s ease-in-out infinite;
+      margin-left: 2px;
+    }
+    @keyframes twinkle {
+      0%, 100% { opacity: 1; transform: scale(1) rotate(0deg); }
+      50%       { opacity: 0.6; transform: scale(0.85) rotate(15deg); }
     }
 
     #status {
       position: fixed;
-      top: 12px;
-      right: 12px;
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 11px;
-      padding: 4px 10px;
+      top: 10px;
+      right: 10px;
+      font-family: 'Caveat', cursive;
+      font-size: 13px;
+      padding: 3px 10px;
       border-radius: 20px;
-      background: rgba(0,0,0,0.6);
-      color: #aaa;
+      background: rgba(22, 19, 21, 0.75);
+      border: 1px solid #584b8b;
+      color: #a492c6;
       transition: all 0.3s;
     }
-    #status.connected { color: #00e676; }
-    #status.error     { color: #ff5252; }
+    #status.connected { color: #ebc188; }
+    #status.error     { color: #ff6b6b; }
   </style>
 </head>
 <body>
@@ -201,30 +239,31 @@
     }
 
     function addMessage(user, message, flags, extra) {
-      const color    = resolveColor(user, extra.userColor);
-      const initials = user.slice(0, 2).toUpperCase();
+      const color      = resolveColor(user, extra.userColor);
+      const displayName = escapeHtml(extra.displayName || user);
+      const badgesHtml  = buildBadgesHtml(extra.userBadges);
+      const msgHtml     = buildMessageHtml(message, extra.messageEmotes);
 
-      const msgEl = document.createElement('div');
-      msgEl.className = 'msg';
-      msgEl.style.setProperty('--user-color', color);
-      msgEl.innerHTML = `
-        <div class="avatar">${initials}</div>
-        <div class="msg-body">
-          <div class="username">
-            <span class="badges">${buildBadgesHtml(extra.userBadges)}</span>
-            ${escapeHtml(extra.displayName || user)}
-          </div>
-          <div class="text">${buildMessageHtml(message, extra.messageEmotes)}</div>
+      const wrapper = document.createElement('div');
+      wrapper.className = 'msg-wrapper';
+      wrapper.style.setProperty('--user-color', color);
+      wrapper.innerHTML = `
+        <div class="username-label">
+          ${badgesHtml ? `<span class="badges">${badgesHtml}</span>` : ''}
+          ${displayName}<span class="star">✦</span>
+        </div>
+        <div class="bubble">
+          <div class="msg-text">${msgHtml}</div>
         </div>
       `;
 
-      container.appendChild(msgEl);
+      container.appendChild(wrapper);
       while (container.children.length > CONFIG.maxMessages)
         container.removeChild(container.firstChild);
 
       setTimeout(() => {
-        msgEl.classList.add('fade-out');
-        msgEl.addEventListener('animationend', () => msgEl.remove(), { once: true });
+        wrapper.classList.add('fade-out');
+        wrapper.addEventListener('animationend', () => wrapper.remove(), { once: true });
       }, CONFIG.messageLifeMs);
     }
 
