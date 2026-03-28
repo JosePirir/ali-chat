@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Chat Overlay</title>
+
+  <style>
+    body {
+      background: transparent;
+      overflow: hidden;
+    }
+
+    .chat-message {
+      color: white;
+      font-size: 20px;
+      margin: 5px 0;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Aquí se mostrarán los mensajes -->
+  <div id="chat"></div>
+
+  <!-- Librería de Twitch -->
+  <script src="https://unpkg.com/tmi.js@1.8.5/dist/tmi.min.js"></script>
+
+  <!-- TU JavaScript -->
+  <script>
+    const client = new tmi.Client({
+      connection: {
+        secure: true,
+        reconnect: true
+      },
+      channels: ['TU_CANAL'] // cámbialo por tu usuario
+    });
+
+    client.connect();
+
+    client.on('connected', () => {
+      console.log('Conectado a Twitch');
+    });
+
+    client.on('message', (channel, tags, message) => {
+      const chat = document.getElementById('chat');
+
+      const div = document.createElement('div');
+      div.className = 'chat-message';
+      div.innerText = tags['display-name'] + ': ' + message;
+
+      chat.appendChild(div);
+    });
+  </script>
+</body>
+</html>
