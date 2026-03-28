@@ -5,7 +5,7 @@
   <title>Twitch Chat Overlay</title>
   <script src="https://cdn.jsdelivr.net/npm/comfy.js@latest/dist/comfy.min.js"></script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Patrick+Hand&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@500;700&family=Caveat:wght@700&display=swap');
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -51,12 +51,12 @@
       to   { opacity: 0; transform: translateY(-6px); }
     }
 
-    /* Nombre de usuario encima del globo, estilo handwritten */
+    /* Nombre de usuario encima del globo */
     .username-label {
-      font-family: 'Caveat', cursive;
-      font-size: 17px;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 13px;
       font-weight: 700;
-      color: var(--user-color, #ebc188);
+      color: #e7e3f1;
       margin-left: 22px;
       margin-bottom: -6px;
       position: relative;
@@ -114,9 +114,9 @@
 
     /* Texto del mensaje */
     .msg-text {
-      font-family: 'Patrick Hand', cursive;
-      font-size: 15px;
-      color: #f0ecff;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 13px;
+      color: #e7e3f1;
       line-height: 1.5;
       word-break: break-word;
     }
@@ -128,13 +128,16 @@
       margin: 0 1px;
     }
 
-    /* Estrellita dorada decorativa (como en el dibujo) */
+    /* Estrellita dorada en esquina superior derecha del globo */
     .star {
-      display: inline-block;
+      position: absolute;
+      top: -13px;
+      right: -10px;
       color: #ebc188;
-      font-size: 14px;
+      font-size: 22px;
+      line-height: 1;
       animation: twinkle 2s ease-in-out infinite;
-      margin-left: 2px;
+      pointer-events: none;
     }
     @keyframes twinkle {
       0%, 100% { opacity: 1; transform: scale(1) rotate(0deg); }
@@ -166,7 +169,7 @@
   <script>
     // ===== CONFIGURACIÓN =====
     const CONFIG = {
-      channel:       '4LiiN4CL',  // <-- cambia esto
+      channel:       'tu_canal_aqui',  // <-- cambia esto
       maxMessages:   20,
       messageLifeMs: 30000,            // 30 segundos por mensaje
     };
@@ -250,9 +253,10 @@
       wrapper.innerHTML = `
         <div class="username-label">
           ${badgesHtml ? `<span class="badges">${badgesHtml}</span>` : ''}
-          ${displayName}<span class="star">✦</span>
+          ${displayName}
         </div>
         <div class="bubble">
+          <span class="star">✦</span>
           <div class="msg-text">${msgHtml}</div>
         </div>
       `;
