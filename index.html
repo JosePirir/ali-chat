@@ -1,69 +1,266 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <title>Chat Overlay</title>
+  <meta charset="UTF-8" />
+  <title>Twitch Chat Overlay</title>
+  <script src="https://cdn.jsdelivr.net/npm/comfy.js@latest/dist/comfy.min.js"></script>
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Syne:wght@400;700&display=swap');
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
     body {
       background: transparent;
+      font-family: 'Syne', sans-serif;
+      width: 400px;
+      height: 100vh;
       overflow: hidden;
-      margin: 0;
-      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 16px;
     }
 
-    .chat-message {
-      color: white;
-      font-size: 20px;
-      margin: 5px 0;
-      text-shadow: 1px 1px 2px black;
+    #chat-container {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 90vh;
+      overflow: hidden;
+    }
+
+    .msg {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      background: rgba(10, 10, 15, 0.82);
+      border-left: 3px solid var(--user-color, #9146ff);
+      border-radius: 0 8px 8px 0;
+      padding: 8px 12px;
+      backdrop-filter: blur(6px);
+      animation: slideIn 0.25s ease-out forwards;
+    }
+
+    .msg.fade-out {
+      animation: fadeOut 0.4s ease-in forwards;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(-18px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    @keyframes fadeOut {
+      from { opacity: 1; }
+      to   { opacity: 0; transform: translateX(-10px); }
+    }
+
+    .avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      font-weight: 600;
+      color: #fff;
+      background: var(--user-color, #9146ff);
+      margin-top: 1px;
+    }
+
+    .msg-body { flex: 1; min-width: 0; }
+
+    .username {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--user-color, #9146ff);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-bottom: 2px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .badges img {
+      width: 14px;
+      height: 14px;
+      vertical-align: middle;
+    }
+
+    .text {
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.92);
+      line-height: 1.45;
       word-break: break-word;
     }
 
-    .username {
-      font-weight: bold;
+    .text img.emote {
+      width: 22px;
+      height: 22px;
+      vertical-align: middle;
     }
+
+    #status {
+      position: fixed;
+      top: 12px;
+      right: 12px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: rgba(0,0,0,0.6);
+      color: #aaa;
+      transition: all 0.3s;
+    }
+    #status.connected { color: #00e676; }
+    #status.error     { color: #ff5252; }
   </style>
 </head>
-
 <body>
-  <div id="chat"></div>
 
-  <!-- Usar unpkg en lugar de jsdelivr -->
-  <script src="https://unpkg.com/tmi.js@1.8.5/dist/tmi.min.js"></script>
+  <div id="status">● conectando…</div>
+  <div id="chat-container"></div>
 
   <script>
-    const MAX_MESSAGES = 30;
+    // ===== CONFIGURACIÓN =====
+    const CONFIG = {
+      channel:       'tu_canal_aqui',  // <-- cambia esto
+      maxMessages:   20,
+      messageLifeMs: 30000,            // 30 segundos por mensaje
+    };
+    // =========================
 
-    const client = new tmi.Client({
-      connection: {
-        secure: true,
-        reconnect: true
-      },
-      channels: ['4LiiN4CL'] // <-- cambia esto
-    });
+    const container = document.getElementById('chat-container');
+    const statusEl  = document.getElementById('status');
 
-    client.connect();
+    const palette = [
+      '#9146ff','#00b5ad','#e91e8c','#ff6b35',
+      '#00c8ff','#f5c518','#43e97b','#fa709a',
+    ];
+    const userColorMap = {};
 
-    client.on('connected', () => {
-      console.log('Conectado a Twitch');
-    });
-
-    client.on('message', (channel, tags, message) => {
-      const chat = document.getElementById('chat');
-
-      const div = document.createElement('div');
-      div.className = 'chat-message';
-
-      const color = tags['color'] || '#FFFFFF';
-      div.innerHTML = `<span class="username" style="color:${color}">${tags['display-name']}</span>: ${message}`;
-
-      chat.appendChild(div);
-
-      // Limitar mensajes visibles
-      while (chat.children.length > MAX_MESSAGES) {
-        chat.removeChild(chat.firstChild);
+    function resolveColor(username, twitchColor) {
+      if (twitchColor && twitchColor !== '#000000') return twitchColor;
+      if (!userColorMap[username]) {
+        const idx = [...username].reduce((a, c) => a + c.charCodeAt(0), 0) % palette.length;
+        userColorMap[username] = palette[idx];
       }
-    });
+      return userColorMap[username];
+    }
+
+    function escapeHtml(str) {
+      return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
+    // Parsea emotes usando extra.messageEmotes  { "id": ["s-e", ...] }
+    function buildMessageHtml(rawText, emotes) {
+      if (!emotes || Object.keys(emotes).length === 0) return escapeHtml(rawText);
+      const parts = [];
+      for (const [id, positions] of Object.entries(emotes)) {
+        for (const pos of positions) {
+          const [s, e] = pos.split('-').map(Number);
+          parts.push({ s, e, id, name: rawText.slice(s, e + 1) });
+        }
+      }
+      parts.sort((a, b) => a.s - b.s);
+      let html = '', cursor = 0;
+      for (const r of parts) {
+        if (r.s > cursor) html += escapeHtml(rawText.slice(cursor, r.s));
+        html += `<img class="emote" src="https://static-cdn.jtvnw.net/emoticons/v2/${r.id}/default/dark/1.0" alt="${escapeHtml(r.name)}" title="${escapeHtml(r.name)}">`;
+        cursor = r.e + 1;
+      }
+      if (cursor < rawText.length) html += escapeHtml(rawText.slice(cursor));
+      return html;
+    }
+
+    // Badges: ComfyJS expone extra.userBadges como array [{url, title}] o como objeto
+    function buildBadgesHtml(userBadges) {
+      if (!userBadges) return '';
+      if (Array.isArray(userBadges)) {
+        return userBadges.filter(b => b && b.url)
+          .map(b => `<img src="${b.url}" alt="${b.title || 'badge'}" title="${b.title || 'badge'}">`)
+          .join('');
+      }
+      // Fallback con URLs estáticas conocidas
+      const known = {
+        broadcaster: 'https://static-cdn.jtvnw.net/badges/v1/5527c58c-fb7d-422d-b71b-f309dcb85cc1/1',
+        moderator:   'https://static-cdn.jtvnw.net/badges/v1/3267646d-33f0-4b17-b3df-f923a41db1d0/1',
+        subscriber:  'https://static-cdn.jtvnw.net/badges/v1/5d9f2208-5dd8-11e7-8513-2ff4adfae661/1',
+        vip:         'https://static-cdn.jtvnw.net/badges/v1/b817aba4-fad8-49e2-b88a-7cc744dfa6ec/1',
+      };
+      return Object.keys(userBadges).filter(k => known[k])
+        .map(k => `<img src="${known[k]}" alt="${k}" title="${k}">`)
+        .join('');
+    }
+
+    function addMessage(user, message, flags, extra) {
+      const color    = resolveColor(user, extra.userColor);
+      const initials = user.slice(0, 2).toUpperCase();
+
+      const msgEl = document.createElement('div');
+      msgEl.className = 'msg';
+      msgEl.style.setProperty('--user-color', color);
+      msgEl.innerHTML = `
+        <div class="avatar">${initials}</div>
+        <div class="msg-body">
+          <div class="username">
+            <span class="badges">${buildBadgesHtml(extra.userBadges)}</span>
+            ${escapeHtml(extra.displayName || user)}
+          </div>
+          <div class="text">${buildMessageHtml(message, extra.messageEmotes)}</div>
+        </div>
+      `;
+
+      container.appendChild(msgEl);
+      while (container.children.length > CONFIG.maxMessages)
+        container.removeChild(container.firstChild);
+
+      setTimeout(() => {
+        msgEl.classList.add('fade-out');
+        msgEl.addEventListener('animationend', () => msgEl.remove(), { once: true });
+      }, CONFIG.messageLifeMs);
+    }
+
+    // ===== Eventos ComfyJS =====
+
+    ComfyJS.onChat = (user, message, flags, self, extra) => {
+      if (self) return;
+      addMessage(user, message, flags, extra);
+    };
+
+    ComfyJS.onCommand = (user, command, message, flags, extra) => {
+      // Muestra también los comandos de chat (!comando)
+      addMessage(user, '!' + command + (message ? ' ' + message : ''), flags, extra);
+    };
+
+    ComfyJS.onConnected = (address, port, isFirstConnect) => {
+      statusEl.textContent = '● conectado';
+      statusEl.className = 'connected';
+      setTimeout(() => { statusEl.style.opacity = '0'; }, 3000);
+    };
+
+    ComfyJS.onError = (err) => {
+      statusEl.style.opacity = '1';
+      statusEl.textContent = '● error de conexión';
+      statusEl.className = 'error';
+      console.error('ComfyJS error:', err);
+    };
+
+    ComfyJS.onReconnect = (reconnectCount) => {
+      statusEl.style.opacity = '1';
+      statusEl.textContent = `● reconectando… (${reconnectCount})`;
+      statusEl.className = '';
+    };
+
+    // Init sin OAuth = solo lectura del chat (suficiente para overlay)
+    ComfyJS.Init(CONFIG.channel);
   </script>
 </body>
 </html>
