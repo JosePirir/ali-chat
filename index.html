@@ -24,17 +24,16 @@
       display: flex;
       flex-direction: column;
       gap: 2px;
-      max-height: 90vh;
-      overflow: hidden;
+      overflow: visible;
     }
 
-    /* Wrapper de cada mensaje: username flotando arriba + globo abajo */
     .msg-wrapper {
       display: flex;
       flex-direction: column;
       align-items: flex-start;
       animation: popIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-      margin-bottom: 4px;
+      margin-bottom: 8px;
+      flex-shrink: 0;
     }
 
     .msg-wrapper.fade-out {
@@ -51,16 +50,13 @@
       to   { opacity: 0; transform: translateY(-6px); }
     }
 
-    /* Nombre de usuario encima del globo */
     .username-label {
       font-family: 'Montserrat', sans-serif;
       font-size: 13px;
       font-weight: 700;
-      color: #e7e3f1;
-      margin-left: 22px;
-      margin-bottom: -6px;
-      position: relative;
-      z-index: 2;
+      color: #ccc5d3;
+      margin-left: 4px;
+      margin-bottom: 3px;
       display: flex;
       align-items: center;
       gap: 5px;
@@ -75,48 +71,40 @@
       vertical-align: middle;
     }
 
-    /* Globo de chat */
+    .bubble-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .star-left {
+      color: #e8b979;
+      font-size: 20px;
+      line-height: 1;
+      flex-shrink: 0;
+      align-self: center;
+    }
+
+    .bubble-wrap {
+      position: relative;
+      display: inline-block;
+      width: 100%;
+    }
+
     .bubble {
       position: relative;
-      background: transparent;
-      border: 3px solid #584b8b;
-      border-radius: 18px 18px 18px 4px;
-      padding: 10px 16px 10px 14px;
-      max-width: 420px;
-      /* ligera sombra para dar profundidad como en el dibujo */
-      box-shadow: 3px 3px 0px rgba(88, 75, 139, 0.45);
+      background: linear-gradient(135deg, rgba(88,75,139,0.50), rgba(161,113,158,0.50));
+      border: 2.5px solid #584b8b;
+      border-radius: 6px;
+      padding: 12px 14px 12px 14px;
+      max-width: 400px;
+      box-shadow: 3px 3px 0px rgba(88, 75, 139, 0.35);
     }
 
-    /* Rabito del globo, esquina inferior izquierda */
-    .bubble::before {
-      content: '';
-      position: absolute;
-      bottom: -14px;
-      left: 14px;
-      width: 0;
-      height: 0;
-      border-left: 8px solid transparent;
-      border-right: 4px solid transparent;
-      border-top: 14px solid #584b8b;
-    }
-    /* Capa interior del rabito para mantener transparencia */
-    .bubble::after {
-      content: '';
-      position: absolute;
-      bottom: -9px;
-      left: 16px;
-      width: 0;
-      height: 0;
-      border-left: 6px solid transparent;
-      border-right: 3px solid transparent;
-      border-top: 10px solid transparent;
-    }
-
-    /* Texto del mensaje */
     .msg-text {
       font-family: 'Montserrat', sans-serif;
       font-size: 13px;
-      color: #e7e3f1;
+      color: #ccc5d3;
       line-height: 1.5;
       word-break: break-word;
     }
@@ -128,20 +116,11 @@
       margin: 0 1px;
     }
 
-    /* Estrellita dorada en esquina superior derecha del globo */
-    .star {
+    .corner-svg {
       position: absolute;
-      top: -13px;
-      right: -10px;
-      color: #ebc188;
-      font-size: 22px;
-      line-height: 1;
-      animation: twinkle 2s ease-in-out infinite;
+      top: 0;
+      right: 0;
       pointer-events: none;
-    }
-    @keyframes twinkle {
-      0%, 100% { opacity: 1; transform: scale(1) rotate(0deg); }
-      50%       { opacity: 0.6; transform: scale(0.85) rotate(15deg); }
     }
 
     #status {
@@ -154,10 +133,10 @@
       border-radius: 20px;
       background: rgba(22, 19, 21, 0.75);
       border: 1px solid #584b8b;
-      color: #a492c6;
+      color: #a1719e;
       transition: all 0.3s;
     }
-    #status.connected { color: #ebc188; }
+    #status.connected { color: #e8b979; }
     #status.error     { color: #ff6b6b; }
   </style>
 </head>
@@ -171,7 +150,7 @@
     const CONFIG = {
       channel:       '4LiiN4CL',  // <-- cambia esto
       maxMessages:   20,
-      messageLifeMs: 30000,            // 30 segundos por mensaje
+      messageLifeMs: 30000,
     };
     // =========================
 
@@ -200,7 +179,6 @@
         .replace(/>/g, '&gt;');
     }
 
-    // Parsea emotes usando extra.messageEmotes  { "id": ["s-e", ...] }
     function buildMessageHtml(rawText, emotes) {
       if (!emotes || Object.keys(emotes).length === 0) return escapeHtml(rawText);
       const parts = [];
@@ -221,7 +199,6 @@
       return html;
     }
 
-    // Badges: ComfyJS expone extra.userBadges como array [{url, title}] o como objeto
     function buildBadgesHtml(userBadges) {
       if (!userBadges) return '';
       if (Array.isArray(userBadges)) {
@@ -229,7 +206,6 @@
           .map(b => `<img src="${b.url}" alt="${b.title || 'badge'}" title="${b.title || 'badge'}">`)
           .join('');
       }
-      // Fallback con URLs estáticas conocidas
       const known = {
         broadcaster: 'https://static-cdn.jtvnw.net/badges/v1/5527c58c-fb7d-422d-b71b-f309dcb85cc1/1',
         moderator:   'https://static-cdn.jtvnw.net/badges/v1/3267646d-33f0-4b17-b3df-f923a41db1d0/1',
@@ -241,29 +217,107 @@
         .join('');
     }
 
+    function addCornerSVG(bubble) {
+      const w = bubble.offsetWidth;
+      const h = bubble.offsetHeight;
+      const starRadius = 16;
+      const lineLen = w * 0.20;
+
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('class', 'corner-svg');
+      svg.setAttribute('width', w);
+      svg.setAttribute('height', h);
+      svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+
+      const cx = w;
+      const cy = 0;
+
+      // línea horizontal (20% del ancho, hacia la izquierda)
+      const lh = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      lh.setAttribute('x1', cx - starRadius); lh.setAttribute('y1', cy);
+      lh.setAttribute('x2', cx - starRadius - lineLen); lh.setAttribute('y2', cy);
+      lh.setAttribute('stroke', '#e8b979'); lh.setAttribute('stroke-width', '1.6'); lh.setAttribute('stroke-linecap', 'round');
+
+      const dh1 = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      dh1.setAttribute('cx', cx - starRadius - lineLen + 4); dh1.setAttribute('cy', cy);
+      dh1.setAttribute('r', '2'); dh1.setAttribute('fill', '#e8b979');
+      const dh2 = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      dh2.setAttribute('cx', cx - starRadius - lineLen - 2); dh2.setAttribute('cy', cy);
+      dh2.setAttribute('r', '1.2'); dh2.setAttribute('fill', '#e8b979'); dh2.setAttribute('opacity', '0.6');
+
+      // línea vertical (misma longitud que horizontal, hacia abajo)
+      const lv = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      lv.setAttribute('x1', cx); lv.setAttribute('y1', cy + starRadius);
+      lv.setAttribute('x2', cx); lv.setAttribute('y2', cy + starRadius + lineLen);
+      lv.setAttribute('stroke', '#e8b979'); lv.setAttribute('stroke-width', '1.6'); lv.setAttribute('stroke-linecap', 'round');
+
+      const dv1 = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      dv1.setAttribute('cx', cx); dv1.setAttribute('cy', cy + starRadius + lineLen - 4);
+      dv1.setAttribute('r', '2'); dv1.setAttribute('fill', '#e8b979');
+      const dv2 = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      dv2.setAttribute('cx', cx); dv2.setAttribute('cy', cy + starRadius + lineLen + 2);
+      dv2.setAttribute('r', '1.2'); dv2.setAttribute('fill', '#e8b979'); dv2.setAttribute('opacity', '0.6');
+
+      // estrella grande en la esquina
+      const starEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      starEl.setAttribute('x', cx); starEl.setAttribute('y', cy);
+      starEl.setAttribute('text-anchor', 'middle'); starEl.setAttribute('dominant-baseline', 'middle');
+      starEl.setAttribute('font-size', '28');
+      starEl.setAttribute('fill', '#e8b979');
+      starEl.setAttribute('font-family', 'Georgia,serif');
+      starEl.textContent = '✦';
+
+      svg.appendChild(lh); svg.appendChild(lv);
+      svg.appendChild(dh1); svg.appendChild(dh2);
+      svg.appendChild(dv1); svg.appendChild(dv2);
+      svg.appendChild(starEl);
+
+      bubble.parentElement.appendChild(svg);
+    }
+
+    function enforceNoClipping() {
+      const maxH = window.innerHeight * 0.92;
+      while (container.scrollHeight > maxH && container.children.length > 1) {
+        container.removeChild(container.firstChild);
+      }
+    }
+
     function addMessage(user, message, flags, extra) {
-      const color      = resolveColor(user, extra.userColor);
       const displayName = escapeHtml(extra.displayName || user);
       const badgesHtml  = buildBadgesHtml(extra.userBadges);
       const msgHtml     = buildMessageHtml(message, extra.messageEmotes);
 
       const wrapper = document.createElement('div');
       wrapper.className = 'msg-wrapper';
-      wrapper.style.setProperty('--user-color', color);
       wrapper.innerHTML = `
         <div class="username-label">
           ${badgesHtml ? `<span class="badges">${badgesHtml}</span>` : ''}
           ${displayName}
         </div>
-        <div class="bubble">
-          <span class="star">✦</span>
-          <div class="msg-text">${msgHtml}</div>
+        <div class="bubble-row">
+          <span class="star-left">✦</span>
+          <div class="bubble-wrap">
+            <div class="bubble">
+              <div class="msg-text">${msgHtml}</div>
+            </div>
+          </div>
         </div>
       `;
 
       container.appendChild(wrapper);
+
       while (container.children.length > CONFIG.maxMessages)
         container.removeChild(container.firstChild);
+
+      // añadir SVG de esquina tras renderizar
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const bubble = wrapper.querySelector('.bubble');
+          if (bubble) addCornerSVG(bubble);
+        });
+      });
+
+      enforceNoClipping();
 
       setTimeout(() => {
         wrapper.classList.add('fade-out');
@@ -271,19 +325,16 @@
       }, CONFIG.messageLifeMs);
     }
 
-    // ===== Eventos ComfyJS =====
-
     ComfyJS.onChat = (user, message, flags, self, extra) => {
       if (self) return;
       addMessage(user, message, flags, extra);
     };
 
     ComfyJS.onCommand = (user, command, message, flags, extra) => {
-      // Muestra también los comandos de chat (!comando)
       addMessage(user, '!' + command + (message ? ' ' + message : ''), flags, extra);
     };
 
-    ComfyJS.onConnected = (address, port, isFirstConnect) => {
+    ComfyJS.onConnected = () => {
       statusEl.textContent = '● conectado';
       statusEl.className = 'connected';
       setTimeout(() => { statusEl.style.opacity = '0'; }, 3000);
@@ -302,7 +353,6 @@
       statusEl.className = '';
     };
 
-    // Init sin OAuth = solo lectura del chat (suficiente para overlay)
     ComfyJS.Init(CONFIG.channel);
   </script>
 </body>
