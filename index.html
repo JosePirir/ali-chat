@@ -96,7 +96,7 @@
       background: linear-gradient(135deg, rgba(88,75,139,0.50), rgba(161,113,158,0.50));
       border: 2.5px solid #584b8b;
       border-radius: 6px;
-      padding: 12px 14px 12px 14px;
+      padding: 12px 14px;
       max-width: 400px;
       box-shadow: 3px 3px 0px rgba(88, 75, 139, 0.35);
     }
@@ -118,8 +118,8 @@
 
     .corner-svg {
       position: absolute;
-      top: 0;
-      right: 0;
+      top: -14px;
+      right: -14px;
       pointer-events: none;
     }
 
@@ -220,51 +220,60 @@
     function addCornerSVG(bubble) {
       const w = bubble.offsetWidth;
       const h = bubble.offsetHeight;
-      const starRadius = 16;
-      const lineLen = w * 0.20;
 
-      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-      svg.setAttribute('class', 'corner-svg');
-      svg.setAttribute('width', w);
-      svg.setAttribute('height', h);
-      svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+      const pad = 14;
+      const lineLen = 36;
+      const lx = w;
+      const ly = pad;
+      const starOffsetY = 3;
+      const sx = lx;
+      const sy = ly + starOffsetY;
 
-      const cx = w;
-      const cy = 0;
+      const svgW = w + pad;
+      const svgH = h + pad;
 
-      // línea horizontal (20% del ancho, hacia la izquierda)
-      const lh = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-      lh.setAttribute('x1', cx - starRadius); lh.setAttribute('y1', cy);
-      lh.setAttribute('x2', cx - starRadius - lineLen); lh.setAttribute('y2', cy);
-      lh.setAttribute('stroke', '#e8b979'); lh.setAttribute('stroke-width', '1.6'); lh.setAttribute('stroke-linecap', 'round');
+      const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+      svg.setAttribute('class','corner-svg');
+      svg.setAttribute('width', svgW);
+      svg.setAttribute('height', svgH);
+      svg.setAttribute('viewBox', `0 0 ${svgW} ${svgH}`);
+      svg.style.width = svgW + 'px';
+      svg.style.height = svgH + 'px';
 
-      const dh1 = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-      dh1.setAttribute('cx', cx - starRadius - lineLen + 4); dh1.setAttribute('cy', cy);
-      dh1.setAttribute('r', '2'); dh1.setAttribute('fill', '#e8b979');
-      const dh2 = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-      dh2.setAttribute('cx', cx - starRadius - lineLen - 2); dh2.setAttribute('cy', cy);
-      dh2.setAttribute('r', '1.2'); dh2.setAttribute('fill', '#e8b979'); dh2.setAttribute('opacity', '0.6');
+      // línea horizontal
+      const lh = document.createElementNS('http://www.w3.org/2000/svg','line');
+      lh.setAttribute('x1', lx); lh.setAttribute('y1', ly);
+      lh.setAttribute('x2', lx - lineLen); lh.setAttribute('y2', ly);
+      lh.setAttribute('stroke','#e8b979'); lh.setAttribute('stroke-width','1.6'); lh.setAttribute('stroke-linecap','round');
 
-      // línea vertical (misma longitud que horizontal, hacia abajo)
-      const lv = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-      lv.setAttribute('x1', cx); lv.setAttribute('y1', cy + starRadius);
-      lv.setAttribute('x2', cx); lv.setAttribute('y2', cy + starRadius + lineLen);
-      lv.setAttribute('stroke', '#e8b979'); lv.setAttribute('stroke-width', '1.6'); lv.setAttribute('stroke-linecap', 'round');
+      // puntos fin horizontal
+      const dh1 = document.createElementNS('http://www.w3.org/2000/svg','circle');
+      dh1.setAttribute('cx', lx - lineLen - 6); dh1.setAttribute('cy', ly);
+      dh1.setAttribute('r','2'); dh1.setAttribute('fill','#e8b979');
+      const dh2 = document.createElementNS('http://www.w3.org/2000/svg','circle');
+      dh2.setAttribute('cx', lx - lineLen - 13); dh2.setAttribute('cy', ly);
+      dh2.setAttribute('r','1.2'); dh2.setAttribute('fill','#e8b979'); dh2.setAttribute('opacity','0.6');
 
-      const dv1 = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-      dv1.setAttribute('cx', cx); dv1.setAttribute('cy', cy + starRadius + lineLen - 4);
-      dv1.setAttribute('r', '2'); dv1.setAttribute('fill', '#e8b979');
-      const dv2 = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-      dv2.setAttribute('cx', cx); dv2.setAttribute('cy', cy + starRadius + lineLen + 2);
-      dv2.setAttribute('r', '1.2'); dv2.setAttribute('fill', '#e8b979'); dv2.setAttribute('opacity', '0.6');
+      // línea vertical
+      const lv = document.createElementNS('http://www.w3.org/2000/svg','line');
+      lv.setAttribute('x1', lx); lv.setAttribute('y1', ly);
+      lv.setAttribute('x2', lx); lv.setAttribute('y2', ly + lineLen);
+      lv.setAttribute('stroke','#e8b979'); lv.setAttribute('stroke-width','1.6'); lv.setAttribute('stroke-linecap','round');
 
-      // estrella grande en la esquina
-      const starEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      starEl.setAttribute('x', cx); starEl.setAttribute('y', cy);
-      starEl.setAttribute('text-anchor', 'middle'); starEl.setAttribute('dominant-baseline', 'middle');
-      starEl.setAttribute('font-size', '28');
-      starEl.setAttribute('fill', '#e8b979');
-      starEl.setAttribute('font-family', 'Georgia,serif');
+      // puntos fin vertical
+      const dv1 = document.createElementNS('http://www.w3.org/2000/svg','circle');
+      dv1.setAttribute('cx', lx); dv1.setAttribute('cy', ly + lineLen + 6);
+      dv1.setAttribute('r','2'); dv1.setAttribute('fill','#e8b979');
+      const dv2 = document.createElementNS('http://www.w3.org/2000/svg','circle');
+      dv2.setAttribute('cx', lx); dv2.setAttribute('cy', ly + lineLen + 13);
+      dv2.setAttribute('r','1.2'); dv2.setAttribute('fill','#e8b979'); dv2.setAttribute('opacity','0.6');
+
+      // estrella
+      const starEl = document.createElementNS('http://www.w3.org/2000/svg','text');
+      starEl.setAttribute('x', sx); starEl.setAttribute('y', sy);
+      starEl.setAttribute('text-anchor','middle'); starEl.setAttribute('dominant-baseline','middle');
+      starEl.setAttribute('font-size','26'); starEl.setAttribute('fill','#e8b979');
+      starEl.setAttribute('font-family','Georgia,serif');
       starEl.textContent = '✦';
 
       svg.appendChild(lh); svg.appendChild(lv);
@@ -309,7 +318,6 @@
       while (container.children.length > CONFIG.maxMessages)
         container.removeChild(container.firstChild);
 
-      // añadir SVG de esquina tras renderizar
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           const bubble = wrapper.querySelector('.bubble');
