@@ -309,11 +309,28 @@
     }
     #status.connected { color: #e8b979; }
     #status.error     { color: #ff6b6b; }
+
+    /* Boton de autorizacion: solo aparece si falta el token de Twitch */
+    #twitch-auth {
+      position: fixed;
+      top: 40px;
+      right: 10px;
+      display: none;
+      font-family: 'Glacial Indifference', sans-serif;
+      font-size: 13px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      background: rgba(22, 19, 21, 0.9);
+      border: 1px solid #e8b979;
+      color: #e8b979;
+      text-decoration: none;
+    }
   </style>
 </head>
 <body>
 
   <div id="status">● conectando…</div>
+  <a id="twitch-auth" href="#">Conectar con Twitch</a>
 
   <div id="alert-container"></div>
   <div id="chat-container"></div>
@@ -326,6 +343,17 @@
       maxMessages:   20,
       messageLifeMs: 30000,
       alertLifeMs:   35000,
+
+      // Avisos de seguidor (Twitch EventSub). Los follows NO viajan por IRC,
+      // asi que esto es imprescindible para que funcionen.
+      // Si clientId queda vacio, el overlay sigue funcionando sin follows.
+      twitch: {
+        // Client ID de la app "AliChat" en dev.twitch.tv/console/apps.
+        // Es publico: viaja como cabecera Client-Id en cada peticion.
+        clientId:    'j4d59nfqt0qxdy2f8piy5pwe32lna8',
+        // Debe coincidir EXACTAMENTE con la OAuth Redirect URL registrada ahi.
+        redirectUri: 'https://josepirir.github.io/ali-chat/',
+      },
     };
     // =========================
 
@@ -557,6 +585,170 @@
     };
 
     ComfyJS.Init(CONFIG.channel);
+
+    // ===== AVISOS DE SEGUIDOR: Twitch EventSub por WebSocket =====
+    // Twitch no manda los follows por IRC, asi que ComfyJS no puede verlos.
+    // Hay que abrir una conexion EventSub aparte y suscribirse a
+    // channel.follow v2, que exige un user access token con el scope
+    // moderator:read:followers. Todo ocurre en el navegador: no hace falta
+    // servidor, por eso sirve en GitHub Pages.
+
+    const TW        = CONFIG.twitch;
+    const TW_SCOPE  = 'moderator:read:followers';
+    const TOKEN_KEY = 'aliChatTwitchToken';
+    const authEl    = document.getElementById('twitch-auth');
+
+    function twStoreToken(t) { try { localStorage.setItem(TOKEN_KEY, t); } catch (e) {} }
+    function twClearToken()  { try { localStorage.removeItem(TOKEN_KEY); } catch (e) {} }
+
+    function twReadToken() {
+      // 1) Vuelta del OAuth: el token llega en el fragmento de la URL.
+      const hash = new URLSearchParams(location.hash.slice(1));
+      const fromHash = hash.get('access_token');
+      if (fromHash) {
+        twStoreToken(fromHash);
+        // Limpiamos la URL para no dejar el token a la vista.
+        history.replaceState(null, '', location.pathname + location.search);
+        return fromHash;
+      }
+      // 2) Pasado a mano por query: comodo para la fuente de OBS.
+      const fromQuery = new URLSearchParams(location.search).get('token');
+      if (fromQuery) return fromQuery;
+      // 3) Guardado de una autorizacion anterior en este navegador.
+      try { return localStorage.getItem(TOKEN_KEY); } catch (e) { return null; }
+    }
+
+    function twAuthUrl() {
+      return 'https://id.twitch.tv/oauth2/authorize?' + new URLSearchParams({
+        client_id:     TW.clientId,
+        redirect_uri:  TW.redirectUri,
+        response_type: 'token',
+        scope:         TW_SCOPE,
+      });
+    }
+
+    function twShowAuthButton() {
+      authEl.href = twAuthUrl();
+      authEl.style.display = 'block';
+    }
+
+    // Devuelve { user_id, login, scopes } o null si el token ya no sirve.
+    async function twValidate(token) {
+      const res = await fetch('https://id.twitch.tv/oauth2/validate', {
+        headers: { Authorization: 'OAuth ' + token },   // OJO: "OAuth", no "Bearer"
+      });
+      return res.ok ? res.json() : null;
+    }
+
+    async function twSubscribeFollows(sessionId, token, userId) {
+      const res = await fetch('https://api.twitch.tv/helix/eventsub/subscriptions', {
+        method: 'POST',
+        headers: {
+          Authorization:  'Bearer ' + token,
+          'Client-Id':    TW.clientId,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type:      'channel.follow',
+          version:   '2',
+          condition: { broadcaster_user_id: userId, moderator_user_id: userId },
+          transport: { method: 'websocket', session_id: sessionId },
+        }),
+      });
+      if (res.status !== 201) {
+        throw new Error('suscripcion rechazada (' + res.status + '): ' + await res.text());
+      }
+    }
+
+    function startEventSub(token, userId) {
+      const vistos = new Set();        // Twitch puede reenviar: evitamos duplicados
+      let ws = null, reintento = 0;
+
+      function conectar(url, esReconexion) {
+        const anterior = ws;
+        const sock = new WebSocket(url || 'wss://eventsub.wss.twitch.tv/ws');
+        if (!esReconexion) ws = sock;
+
+        sock.onmessage = async (ev) => {
+          let msg;
+          try { msg = JSON.parse(ev.data); } catch (e) { return; }
+          const meta = msg.metadata || {};
+
+          // Twitch reenvia mensajes: descartamos los ya procesados.
+          if (meta.message_id) {
+            if (vistos.has(meta.message_id)) return;
+            vistos.add(meta.message_id);
+            if (vistos.size > 300) vistos.clear();
+          }
+
+          if (meta.message_type === 'session_welcome') {
+            ws = sock;
+            reintento = 0;
+            // En una reconexion las suscripciones se conservan: no repetir.
+            if (esReconexion) {
+              if (anterior && anterior !== sock) anterior.close();
+              return;
+            }
+            try {
+              // Solo hay 10 segundos desde el welcome para suscribirse.
+              await twSubscribeFollows(msg.payload.session.id, token, userId);
+            } catch (e) {
+              console.error('[EventSub]', e);
+              statusEl.style.opacity = '1';
+              statusEl.textContent = '● follows: error';
+              statusEl.className = 'error';
+            }
+          }
+          else if (meta.message_type === 'notification') {
+            if (meta.subscription_type === 'channel.follow') {
+              addAlert('NEW FOLLOWER', '@' + msg.payload.event.user_name);
+            }
+          }
+          else if (meta.message_type === 'session_reconnect') {
+            // 30 segundos para pasarse a la URL nueva sin perder eventos.
+            conectar(msg.payload.session.reconnect_url, true);
+          }
+          else if (meta.message_type === 'revocation') {
+            console.warn('[EventSub] suscripcion revocada:', msg.payload.subscription?.status);
+            twClearToken();
+            twShowAuthButton();
+          }
+        };
+
+        sock.onclose = (e) => {
+          if (sock !== ws) return;            // cierre del socket viejo tras reconectar
+          if (e.code === 4003) return;        // se cerro por no suscribir: ya avisamos
+          // Reintento con espera creciente, tope de 30 s.
+          const espera = Math.min(30000, 1000 * Math.pow(2, reintento++));
+          setTimeout(() => conectar(null, false), espera);
+        };
+      }
+
+      conectar(null, false);
+    }
+
+    async function initFollowAlerts() {
+      if (!TW.clientId) return;               // sin configurar: overlay normal, sin follows
+      const token = twReadToken();
+      if (!token) { twShowAuthButton(); return; }
+
+      const info = await twValidate(token);
+      if (!info) {                            // caducado o revocado
+        twClearToken();
+        twShowAuthButton();
+        return;
+      }
+      if (!(info.scopes || []).includes(TW_SCOPE)) {
+        console.error('[EventSub] al token le falta el scope ' + TW_SCOPE);
+        twClearToken();
+        twShowAuthButton();
+        return;
+      }
+      authEl.style.display = 'none';
+      startEventSub(token, info.user_id);
+    }
+
+    initFollowAlerts();
 
     // Helper de prueba desde la consola del navegador, sin necesidad de eventos reales:
     // testAlert('follow' | 'sub' | 'resub' | 'gift' | 'bits' | 'raid')
