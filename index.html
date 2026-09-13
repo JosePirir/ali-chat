@@ -312,14 +312,21 @@
 
     /* Panel de configuracion. Oculto SIEMPRE salvo que la URL lleve ?setup=1,
        para que nunca aparezca nada de esto encima del directo. */
+    /* Ocupa solo la franja superior: asi el chat y las alertas, que se
+       dibujan abajo, siguen viendose mientras configuras y puedes
+       comprobar en vivo que funcionan. */
     #setup {
       position: fixed;
-      inset: 0;
+      top: 0;
+      left: 0;
+      right: 0;
+      max-height: 60vh;
       display: none;
       flex-direction: column;
       gap: 14px;
-      padding: 28px;
+      padding: 24px;
       background: #161315;
+      border-bottom: 1px solid rgba(232,185,121,0.3);
       font-family: 'Glacial Indifference', sans-serif;
       font-size: 14px;
       color: #ccc5d3;
@@ -338,7 +345,7 @@
     #setup .fila b { color: #a1719e; min-width: 120px; }
     #setup .ok   { color: #7ddba3; }
     #setup .mal  { color: #ff6b6b; }
-    #setup a.boton {
+    #setup a.boton, #setup button.boton {
       align-self: flex-start;
       padding: 10px 18px;
       border-radius: 20px;
@@ -346,7 +353,12 @@
       color: #fff;
       text-decoration: none;
       font-weight: 700;
+      border: 0;
+      font-family: inherit;
+      font-size: 14px;
+      cursor: pointer;
     }
+    #setup button.boton.sec { background: transparent; border: 1px solid #e8b979; color: #e8b979; }
     #setup .url {
       word-break: break-all;
       background: rgba(232,185,121,0.1);
@@ -367,6 +379,8 @@
     <h1>AliChat — configuración</h1>
     <div class="fila"><b>Chat (IRC)</b><span id="s-chat">comprobando…</span></div>
     <div class="fila"><b>Seguidores</b><span id="s-follow">comprobando…</span></div>
+    <div class="fila"><b>Eventos recibidos</b><span id="s-eventos">ninguno todavía</span></div>
+    <button class="boton sec" id="s-probar">Probar alerta</button>
     <div id="s-accion"></div>
     <p class="nota">
       Esta pantalla solo aparece con <code>?setup=1</code> en la URL.
@@ -652,6 +666,19 @@
         document.getElementById('s-chat').innerHTML =
           '<span class="ok">conectado a ' + CONFIG.channel + '</span>';
       };
+      document.getElementById('s-probar').onclick = () => testAlert('follow');
+    }
+
+    // Deja constancia de cada evento que llega de verdad por EventSub,
+    // para distinguir "no llega nada" de "llega pero no se dibuja".
+    let nEventos = 0;
+    function anotarEvento(texto) {
+      nEventos++;
+      console.log('[EventSub] evento:', texto);
+      if (ES_SETUP) {
+        document.getElementById('s-eventos').innerHTML =
+          '<span class="ok">' + nEventos + ' — último: ' + texto + '</span>';
+      }
     }
 
     function setFollowEstado(texto, clase) {
@@ -791,7 +818,11 @@
           }
           else if (meta.message_type === 'notification') {
             if (meta.subscription_type === 'channel.follow') {
-              addAlert('NEW FOLLOWER', '@' + msg.payload.event.user_name);
+              const nombre = msg.payload.event.user_name || msg.payload.event.user_login;
+              anotarEvento('follow de ' + nombre);
+              addAlert('NEW FOLLOWER', '@' + nombre);
+            } else {
+              anotarEvento(meta.subscription_type);
             }
           }
           else if (meta.message_type === 'session_reconnect') {
