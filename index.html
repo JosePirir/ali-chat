@@ -310,27 +310,69 @@
     #status.connected { color: #e8b979; }
     #status.error     { color: #ff6b6b; }
 
-    /* Boton de autorizacion: solo aparece si falta el token de Twitch */
-    #twitch-auth {
+    /* Panel de configuracion. Oculto SIEMPRE salvo que la URL lleve ?setup=1,
+       para que nunca aparezca nada de esto encima del directo. */
+    #setup {
       position: fixed;
-      top: 40px;
-      right: 10px;
+      inset: 0;
       display: none;
+      flex-direction: column;
+      gap: 14px;
+      padding: 28px;
+      background: #161315;
       font-family: 'Glacial Indifference', sans-serif;
-      font-size: 13px;
-      padding: 6px 12px;
-      border-radius: 20px;
-      background: rgba(22, 19, 21, 0.9);
-      border: 1px solid #e8b979;
-      color: #e8b979;
-      text-decoration: none;
+      font-size: 14px;
+      color: #ccc5d3;
+      overflow: auto;
+      z-index: 99;
     }
+    #setup.visible { display: flex; }
+    #setup h1 { font-size: 20px; color: #e8b979; font-weight: 700; }
+    #setup .fila {
+      display: flex;
+      gap: 8px;
+      align-items: baseline;
+      border-bottom: 1px solid rgba(232,185,121,0.2);
+      padding-bottom: 8px;
+    }
+    #setup .fila b { color: #a1719e; min-width: 120px; }
+    #setup .ok   { color: #7ddba3; }
+    #setup .mal  { color: #ff6b6b; }
+    #setup a.boton {
+      align-self: flex-start;
+      padding: 10px 18px;
+      border-radius: 20px;
+      background: #9146ff;
+      color: #fff;
+      text-decoration: none;
+      font-weight: 700;
+    }
+    #setup .url {
+      word-break: break-all;
+      background: rgba(232,185,121,0.1);
+      border: 1px solid rgba(232,185,121,0.4);
+      padding: 10px;
+      border-radius: 6px;
+      color: #e8b979;
+      font-size: 12px;
+    }
+    #setup .nota { color: #8a8391; font-size: 12px; line-height: 1.5; }
   </style>
 </head>
 <body>
 
   <div id="status">● conectando…</div>
-  <a id="twitch-auth" href="#">Conectar con Twitch</a>
+
+  <div id="setup">
+    <h1>AliChat — configuración</h1>
+    <div class="fila"><b>Chat (IRC)</b><span id="s-chat">comprobando…</span></div>
+    <div class="fila"><b>Seguidores</b><span id="s-follow">comprobando…</span></div>
+    <div id="s-accion"></div>
+    <p class="nota">
+      Esta pantalla solo aparece con <code>?setup=1</code> en la URL.
+      La fuente del overlay nunca la muestra.
+    </p>
+  </div>
 
   <div id="alert-container"></div>
   <div id="chat-container"></div>
@@ -596,7 +638,25 @@
     const TW        = CONFIG.twitch;
     const TW_SCOPE  = 'moderator:read:followers';
     const TOKEN_KEY = 'aliChatTwitchToken';
-    const authEl    = document.getElementById('twitch-auth');
+
+    // Modo configuracion: solo con ?setup=1. Asi el overlay del directo
+    // nunca enseña botones ni diagnosticos por encima de la escena.
+    const ES_SETUP   = new URLSearchParams(location.search).has('setup');
+    const setupEl    = document.getElementById('setup');
+    const sFollowEl  = document.getElementById('s-follow');
+    const sAccionEl  = document.getElementById('s-accion');
+
+    if (ES_SETUP) {
+      setupEl.classList.add('visible');
+      ComfyJS.onConnected = () => {
+        document.getElementById('s-chat').innerHTML =
+          '<span class="ok">conectado a ' + CONFIG.channel + '</span>';
+      };
+    }
+
+    function setFollowEstado(texto, clase) {
+      if (ES_SETUP) sFollowEl.innerHTML = '<span class="' + (clase || '') + '">' + texto + '</span>';
+    }
 
     function twStoreToken(t) { try { localStorage.setItem(TOKEN_KEY, t); } catch (e) {} }
     function twClearToken()  { try { localStorage.removeItem(TOKEN_KEY); } catch (e) {} }
@@ -627,9 +687,29 @@
       });
     }
 
-    function twShowAuthButton() {
-      authEl.href = twAuthUrl();
-      authEl.style.display = 'block';
+    // Solo tiene sentido pedir autorizacion en la pantalla de configuracion:
+    // en OBS no hay nadie para pulsar nada y el boton saldria en el directo.
+    function twPedirAutorizacion(motivo) {
+      setFollowEstado(motivo, 'mal');
+      if (!ES_SETUP) return;
+      sAccionEl.innerHTML = '';
+      const a = document.createElement('a');
+      a.className = 'boton';
+      a.href = twAuthUrl();
+      a.textContent = 'Conectar con Twitch';
+      sAccionEl.appendChild(a);
+    }
+
+    // Tras autorizar, el token vive en este navegador. OBS usa otro, asi que
+    // le damos la URL ya montada para pegar en la fuente.
+    function mostrarUrlParaObs(token) {
+      if (!ES_SETUP) return;
+      const url = TW.redirectUri + '?token=' + encodeURIComponent(token);
+      sAccionEl.innerHTML =
+        '<p class="nota">URL para la fuente de navegador de OBS:</p>' +
+        '<div class="url"></div>' +
+        '<p class="nota">Contiene tu token: no la enseñes en pantalla ni la compartas.</p>';
+      sAccionEl.querySelector('.url').textContent = url;
     }
 
     // Devuelve { user_id, login, scopes } o null si el token ya no sirve.
@@ -692,8 +772,10 @@
             try {
               // Solo hay 10 segundos desde el welcome para suscribirse.
               await twSubscribeFollows(msg.payload.session.id, token, userId);
+              setFollowEstado('escuchando follows en tiempo real', 'ok');
             } catch (e) {
               console.error('[EventSub]', e);
+              setFollowEstado('error al suscribirse: ' + e.message, 'mal');
               statusEl.style.opacity = '1';
               statusEl.textContent = '● follows: error';
               statusEl.className = 'error';
@@ -711,7 +793,7 @@
           else if (meta.message_type === 'revocation') {
             console.warn('[EventSub] suscripcion revocada:', msg.payload.subscription?.status);
             twClearToken();
-            twShowAuthButton();
+            twPedirAutorizacion('autorización revocada: vuelve a conectar');
           }
         };
 
@@ -728,23 +810,30 @@
     }
 
     async function initFollowAlerts() {
-      if (!TW.clientId) return;               // sin configurar: overlay normal, sin follows
+      if (!TW.clientId) {
+        setFollowEstado('falta configurar CONFIG.twitch.clientId', 'mal');
+        return;
+      }
       const token = twReadToken();
-      if (!token) { twShowAuthButton(); return; }
+      if (!token) {
+        twPedirAutorizacion('sin autorizar — los follows no llegarán');
+        return;
+      }
 
       const info = await twValidate(token);
       if (!info) {                            // caducado o revocado
         twClearToken();
-        twShowAuthButton();
+        twPedirAutorizacion('el token caducó — vuelve a conectar');
         return;
       }
       if (!(info.scopes || []).includes(TW_SCOPE)) {
         console.error('[EventSub] al token le falta el scope ' + TW_SCOPE);
         twClearToken();
-        twShowAuthButton();
+        twPedirAutorizacion('al token le falta el permiso ' + TW_SCOPE);
         return;
       }
-      authEl.style.display = 'none';
+      setFollowEstado('autorizado como ' + info.login + ', conectando…', 'ok');
+      mostrarUrlParaObs(token);
       startEventSub(token, info.user_id);
     }
 
