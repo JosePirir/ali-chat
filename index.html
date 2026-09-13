@@ -735,8 +735,16 @@
           transport: { method: 'websocket', session_id: sessionId },
         }),
       });
-      if (res.status !== 201) {
-        throw new Error('suscripcion rechazada (' + res.status + '): ' + await res.text());
+      // OJO: el exito aqui es 202 Accepted, no 201. Con transporte websocket
+      // la suscripcion vuelve ya con status "enabled".
+      const cuerpo = await res.json().catch(() => null);
+      const sub = cuerpo && cuerpo.data && cuerpo.data[0];
+      if (!res.ok || !sub) {
+        const detalle = cuerpo ? (cuerpo.message || JSON.stringify(cuerpo)) : res.statusText;
+        throw new Error('HTTP ' + res.status + ' — ' + detalle);
+      }
+      if (sub.status !== 'enabled') {
+        throw new Error('la suscripcion quedo en estado "' + sub.status + '"');
       }
     }
 
