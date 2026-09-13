@@ -496,16 +496,20 @@
     };
 
     ComfyJS.onCommand = (user, command, message, flags, extra) => {
+      // !alerta [tipo]  -> dispara una alerta de prueba (solo streamer o mods),
+      // util para verificar el overlay dentro de OBS, donde no hay consola.
+      if (command.toLowerCase() === 'alerta') {
+        if (!flags || !(flags.broadcaster || flags.mod)) return;
+        testAlert((message || '').trim().toLowerCase() || 'follow');
+        return;
+      }
       addMessage(user, '!' + command + (message ? ' ' + message : ''), flags, extra);
     };
 
-    // Nota: Twitch deprecó el evento de "follow" en tiempo real vía PubSub/IRC,
-    // por lo que este handler puede no dispararse de forma fiable sin una
-    // integración adicional (EventSub + backend). Se deja conectado por si
-    // ComfyJS lo soporta en tu configuración, pero no está garantizado.
-    ComfyJS.onFollow = (user, extra) => {
-      addAlert('NEW FOLLOWER', atName(user, extra));
-    };
+    // OJO: ComfyJS NO tiene evento de "follow". Los seguidores no viajan por IRC,
+    // asi que no hay forma de detectarlos con esta libreria: haria falta Twitch
+    // EventSub (token con scope moderator:read:followers) o un servicio tipo
+    // Streamlabs. Los eventos de abajo si llegan por IRC y funcionan sin token.
 
     ComfyJS.onSub = (user, message, subTierInfo, extra) => {
       addAlert('NEW SUBSCRIBER', atName(user, extra));
@@ -515,11 +519,13 @@
       addAlert('NEW RESUB', atName(user, extra));
     };
 
-    ComfyJS.onGiftSub = (gifterUser, streakMonths, recipientUser, senderCount, tier, extra) => {
+    // El nombre correcto es onSubGift (no onGiftSub)
+    ComfyJS.onSubGift = (gifterUser, streakMonths, recipientUser, senderCount, subTierInfo, extra) => {
       addAlert('GIFTED SUB', atName(gifterUser, extra));
     };
 
-    ComfyJS.onGiftSubCommunity = (gifterUser, numbOfSubs, senderCount, tier, extra) => {
+    // El nombre correcto es onSubMysteryGift (no onGiftSubCommunity)
+    ComfyJS.onSubMysteryGift = (gifterUser, numbOfSubs, senderCount, subTierInfo, extra) => {
       addAlert(`GIFTED ${numbOfSubs} SUBS`, atName(gifterUser, extra));
     };
 
