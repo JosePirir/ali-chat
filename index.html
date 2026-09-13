@@ -5,7 +5,28 @@
   <title>Twitch Chat Overlay</title>
   <script src="https://cdn.jsdelivr.net/npm/comfy.js@latest/dist/comfy.min.js"></script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700&family=Jost:ital,wght@0,300;0,400;1,400;1,500&display=swap');
+    /* Fuentes locales (carpeta ./fuentes junto a este archivo) */
+    @font-face {
+      font-family: 'Glacial Indifference';
+      src: url('fuentes/GlacialIndifference-Regular.otf') format('opentype');
+      font-weight: 400;
+      font-style: normal;
+      font-display: block;
+    }
+    @font-face {
+      font-family: 'Glacial Indifference';
+      src: url('fuentes/GlacialIndifference-Bold.otf') format('opentype');
+      font-weight: 700;
+      font-style: normal;
+      font-display: block;
+    }
+    @font-face {
+      font-family: 'Nyght Serif';
+      src: url('fuentes/NyghtSerif-Dark.otf') format('opentype');
+      font-weight: 400;
+      font-style: normal;
+      font-display: block;
+    }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -53,9 +74,9 @@
     }
 
     .username-label {
-      font-family: 'Baloo 2', sans-serif;
+      font-family: 'Glacial Indifference', sans-serif;
       font-size: 20px;
-      font-weight: 600;
+      font-weight: 700;
       color: #ccc5d3;
       /* alinea la estrella con el borde izquierdo del globo (rail 8px + gap 10px) */
       margin-left: 18px;
@@ -130,8 +151,8 @@
     }
 
     .msg-text {
-      font-family: 'Baloo 2', sans-serif;
-      font-weight: 500;
+      font-family: 'Glacial Indifference', sans-serif;
+      font-weight: 400;
       font-size: 18px;
       color: #ccc5d3;
       line-height: 1.5;
@@ -200,8 +221,8 @@
     }
 
     .alert-title {
-      font-family: 'Jost', sans-serif;
-      font-weight: 300;
+      font-family: 'Nyght Serif', serif;
+      font-weight: 400;
       font-size: 18px;
       letter-spacing: 0.09em;
       color: #f4ead9;
@@ -216,7 +237,7 @@
     }
 
     .alert-user {
-      font-family: 'Jost', sans-serif;
+      font-family: 'Glacial Indifference', sans-serif;
       font-style: italic;
       font-weight: 400;
       font-size: 17px;
@@ -277,7 +298,7 @@
       position: fixed;
       top: 10px;
       right: 10px;
-      font-family: 'Montserrat', sans-serif;
+      font-family: 'Glacial Indifference', sans-serif;
       font-size: 13px;
       padding: 3px 10px;
       border-radius: 20px;
