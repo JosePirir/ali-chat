@@ -379,6 +379,7 @@
     <h1>AliChat — configuración</h1>
     <div class="fila"><b>Chat (IRC)</b><span id="s-chat">comprobando…</span></div>
     <div class="fila"><b>Seguidores</b><span id="s-follow">comprobando…</span></div>
+    <div class="fila"><b>Suscripción</b><span id="s-subs">comprobando…</span></div>
     <div class="fila"><b>Eventos recibidos</b><span id="s-eventos">ninguno todavía</span></div>
     <button class="boton sec" id="s-probar">Probar alerta</button>
     <div id="s-accion"></div>
@@ -669,6 +670,31 @@
       document.getElementById('s-probar').onclick = () => testAlert('follow');
     }
 
+    // Pregunta a Twitch que suscripciones tiene registradas de verdad.
+    // Es la prueba definitiva de que va a mandarnos los follows: si aqui
+    // sale "enabled", el problema no esta en la conexion.
+    async function twComprobarSuscripciones(token) {
+      if (!ES_SETUP) return;
+      const el = document.getElementById('s-subs');
+      try {
+        const res = await fetch('https://api.twitch.tv/helix/eventsub/subscriptions', {
+          headers: { Authorization: 'Bearer ' + token, 'Client-Id': TW.clientId },
+        });
+        const j = await res.json();
+        const follows = (j.data || []).filter(s => s.type === 'channel.follow');
+        const activas = follows.filter(s => s.status === 'enabled');
+        if (activas.length) {
+          el.innerHTML = '<span class="ok">channel.follow activa (enabled) — Twitch enviará los follows</span>';
+        } else if (follows.length) {
+          el.innerHTML = '<span class="mal">existe pero en estado ' + follows[0].status + '</span>';
+        } else {
+          el.innerHTML = '<span class="mal">ninguna suscripción registrada</span>';
+        }
+      } catch (e) {
+        el.innerHTML = '<span class="mal">no se pudo consultar: ' + e.message + '</span>';
+      }
+    }
+
     // Deja constancia de cada evento que llega de verdad por EventSub,
     // para distinguir "no llega nada" de "llega pero no se dibuja".
     let nEventos = 0;
@@ -808,6 +834,7 @@
               // Solo hay 10 segundos desde el welcome para suscribirse.
               await twSubscribeFollows(msg.payload.session.id, token, userId);
               setFollowEstado('escuchando follows en tiempo real', 'ok');
+              twComprobarSuscripciones(token);
             } catch (e) {
               console.error('[EventSub]', e);
               setFollowEstado('error al suscribirse: ' + e.message, 'mal');
